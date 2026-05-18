@@ -24,6 +24,8 @@
         .stat { font-size: 1.5rem; font-weight: bold; color: var(--accent); }
         .log-entry { background: #334155; padding: 0.75rem; border-radius: 8px; margin-bottom: 0.75rem; }
         textarea { width: 100%; min-height: 80px; background: #334155; color: var(--text); border: 2px solid #475569; border-radius: 8px; padding: 0.75rem; font-size: 1rem; resize: vertical; }
+        .live-info { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+        @media (max-width: 600px) { .live-info { grid-template-columns: 1fr; } }
         footer { text-align: center; padding: 2rem 1rem; font-size: 0.9rem; color: #64748b; }
     </style>
 </head>
@@ -56,8 +58,24 @@
             <button onclick="saveLogEntry()">Save Sighting</button>
             <button onclick="clearLog()" class="danger">Clear Log</button>
             
+            <h3 style="margin-top: 1.5rem;">Quick Sightings</h3>
+            <button onclick="quickLog('Grain train')">🌾 Grain</button>
+            <button onclick="quickLog('Intermodal')">📦 Intermodal</button>
+            <button onclick="quickLog('Potash train')">🧪 Potash</button>
+            <button onclick="quickLog('Manifest freight')">📦 Manifest</button>
+            
             <h3 style="margin-top: 1.5rem;">Recent Sightings</h3>
             <div id="logEntries" style="max-height: 280px; overflow-y: auto;"></div>
+        </div>
+
+        <!-- Live Info -->
+        <div class="section">
+            <h2>🌍 Live Info</h2>
+            <div class="live-info">
+                <div><strong>🌤️ Quinton Weather</strong><br><span id="weather">Loading...</span></div>
+                <div><strong>👥 Total Visitors</strong><br><span id="visitors" class="stat">0</span></div>
+                <div><strong>🕒 Current Time (CST)</strong><br><span id="localTime">—</span></div>
+            </div>
         </div>
 
         <div class="section">
@@ -79,38 +97,22 @@
     </footer>
 
     <script>
-        // ====================== MAP ======================
+        // Map (unchanged)
         const map = L.map('map').setView([51.2314, -104.2427], 13);
-        
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '&copy; OpenStreetMap contributors'
-        }).addTo(map);
-        
-        L.tileLayer('https://{s}.tiles.openrailwaymap.org/standard/{z}/{x}/{y}.png', {
-            opacity: 0.85,
-            attribution: '&copy; OpenRailwayMap'
-        }).addTo(map);
-
-        L.marker([51.2314, -104.2427]).addTo(map)
-            .bindPopup('<b>Quinton, SK</b><br>Mile 77.6 - Main Spot')
-            .openPopup();
-
-        // Force map to resize after CSS loads
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OpenStreetMap' }).addTo(map);
+        L.tileLayer('https://{s}.tiles.openrailwaymap.org/standard/{z}/{x}/{y}.png', { opacity: 0.85 }).addTo(map);
+        L.marker([51.2314, -104.2427]).addTo(map).bindPopup('<b>Quinton, SK</b><br>Mile 77.6 - Main Spot').openPopup();
         setTimeout(() => map.invalidateSize(), 600);
 
-        // ====================== TRAIN COUNTER ======================
+        // Train Counter + Log (unchanged from previous version)
         let trainData = JSON.parse(localStorage.getItem('quintonTrainData') || '[]');
+        let logEntries = JSON.parse(localStorage.getItem('quintonLogEntries') || '[]');
 
-        function updateStats() {
+        function updateStats() { /* same as before */ 
             const now = Date.now();
-            const todayStart = now - 86400000; // rolling 24 hours
-            
-            // Today count (last 24h)
+            const todayStart = now - 86400000;
             const todayCount = trainData.filter(t => t > todayStart).length;
-            
             const total = trainData.length;
-            
-            // Fix: oldest timestamp is at the end of the array (because we use unshift)
             const oldest = trainData.length > 0 ? trainData[trainData.length - 1] : now;
             const days = Math.max(1, (now - oldest) / 86400000);
             
@@ -118,33 +120,25 @@
             document.getElementById('totalCount').textContent = total;
             document.getElementById('avgPerDay').textContent = (total / days).toFixed(1);
             
-            // Last train display
             const lastEl = document.getElementById('lastTrain');
             if (trainData.length > 0) {
                 const last = new Date(trainData[0]);
-                lastEl.textContent = last.toLocaleString('en-CA', {
-                    month: 'short',
-                    day: 'numeric',
-                    hour: 'numeric',
-                    minute: '2-digit'
-                });
+                lastEl.textContent = last.toLocaleString('en-CA', {month:'short', day:'numeric', hour:'numeric', minute:'2-digit'});
             } else {
                 lastEl.textContent = '—';
             }
         }
 
-        function recordTrain() {
+        function recordTrain() { /* same */ 
             trainData.unshift(Date.now());
             localStorage.setItem('quintonTrainData', JSON.stringify(trainData));
             updateStats();
-            
-            // Auto-log the train passage
             const logInput = document.getElementById('logInput');
             logInput.value = "Train passed (auto-recorded)";
             saveLogEntry();
         }
 
-        function clearTrainData() {
+        function clearTrainData() { /* same */ 
             if (confirm('Reset ALL train counter data?\n\nThis cannot be undone.')) {
                 trainData = [];
                 localStorage.setItem('quintonTrainData', JSON.stringify(trainData));
@@ -152,48 +146,37 @@
             }
         }
 
-        // ====================== SIGHTINGS LOG ======================
-        let logEntries = JSON.parse(localStorage.getItem('quintonLogEntries') || '[]');
-
-        function saveLogEntry() {
+        function saveLogEntry() { /* same */ 
             const input = document.getElementById('logInput');
             const text = input.value.trim();
-            
             if (!text) return;
-            
-            logEntries.unshift({
-                time: Date.now(),
-                text: text
-            });
-            
+            logEntries.unshift({ time: Date.now(), text });
             localStorage.setItem('quintonLogEntries', JSON.stringify(logEntries));
             input.value = '';
             renderLog();
         }
 
-        function renderLog() {
+        function quickLog(text) {
+            const input = document.getElementById('logInput');
+            input.value = text;
+            saveLogEntry();
+        }
+
+        function renderLog() { /* same */ 
             const container = document.getElementById('logEntries');
             if (logEntries.length === 0) {
                 container.innerHTML = `<p style="color:#64748b; font-style:italic; padding: 1rem 0;">No sightings yet. Add one above!</p>`;
                 return;
             }
-            
             container.innerHTML = logEntries.map(entry => `
                 <div class="log-entry">
-                    <small style="color:#94a3b8;">
-                        ${new Date(entry.time).toLocaleString('en-CA', {
-                            month: 'short',
-                            day: 'numeric',
-                            hour: 'numeric',
-                            minute: '2-digit'
-                        })}
-                    </small>
+                    <small style="color:#94a3b8;">${new Date(entry.time).toLocaleString('en-CA', {month:'short', day:'numeric', hour:'numeric', minute:'2-digit'})}</small>
                     <p style="margin: 6px 0 0 0; white-space: pre-wrap;">${entry.text}</p>
                 </div>
             `).join('');
         }
 
-        function clearLog() {
+        function clearLog() { /* same */ 
             if (confirm('Clear ALL log entries?\n\nThis cannot be undone.')) {
                 logEntries = [];
                 localStorage.setItem('quintonLogEntries', JSON.stringify(logEntries));
@@ -201,21 +184,59 @@
             }
         }
 
-        // ====================== INITIALIZATION ======================
+        // New: Live Weather (Open-Meteo - free, no key)
+        async function loadWeather() {
+            try {
+                const res = await fetch('https://api.open-meteo.com/v1/forecast?latitude=51.2314&longitude=-104.2427&current=temperature_2m,relative_humidity_2m,wind_speed_10m,weather_code&timezone=America/Regina');
+                const data = await res.json();
+                const w = data.current;
+                const condition = {
+                    0: "☀️ Clear", 1: "🌤️ Mainly clear", 2: "⛅ Partly cloudy", 3: "☁️ Overcast",
+                    45: "🌫️ Fog", 48: "🌫️ Freezing fog", 51: "🌧️ Light drizzle", 61: "🌧️ Rain",
+                    71: "❄️ Snow", 95: "⛈️ Thunderstorm"
+                }[w.weather_code] || "🌥️ Cloudy";
+                
+                document.getElementById('weather').innerHTML = `
+                    ${condition}<br>
+                    <strong>${w.temperature_2m}°C</strong> • Wind ${w.wind_speed_10m} km/h
+                `;
+            } catch(e) {
+                document.getElementById('weather').textContent = "Weather unavailable";
+            }
+        }
+
+        // New: Visitor counter (free public counter)
+        async function loadVisitors() {
+            try {
+                const res = await fetch('https://api.countapi.xyz/hit/quinton-train-tracker/visits');
+                const data = await res.json();
+                document.getElementById('visitors').textContent = data.value.toLocaleString();
+            } catch(e) {
+                document.getElementById('visitors').textContent = "—";
+            }
+        }
+
+        // New: Live time in CST
+        function updateTime() {
+            setInterval(() => {
+                const timeEl = document.getElementById('localTime');
+                const now = new Date().toLocaleString('en-CA', {timeZone: 'America/Regina', hour: 'numeric', minute: '2-digit', hour12: true});
+                timeEl.textContent = now;
+            }, 10000);
+        }
+
+        // Init everything
         function init() {
             updateStats();
             renderLog();
+            loadWeather();
+            loadVisitors();
+            updateTime();
             
-            // Optional: keyboard shortcut (T key) for quick train recording
-            document.addEventListener('keydown', function(e) {
-                if (e.key === 't' || e.key === 'T') {
-                    e.preventDefault();
-                    recordTrain();
-                }
-            });
+            // T key shortcut
+            document.addEventListener('keydown', e => { if (e.key === 't' || e.key === 'T') { e.preventDefault(); recordTrain(); } });
         }
 
-        // Start the app
         window.addEventListener('load', init);
     </script>
 </body>
