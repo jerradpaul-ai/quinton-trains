@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🚂 Quinton Train Tracker</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        :root { --bg: #0f172a; --card: #1e2937; --accent: #f59e0b; --text: #e2e8f0; }
+        body { margin: 0; font-family: system-ui, sans-serif; background: var(--bg); color: var(--text); line-height: 1.5; }
+        header { background: linear-gradient(135deg, #1e2937, #334155); padding: 1rem; text-align: center; border-bottom: 4px solid var(--accent); }
+        h1 { margin: 0; font-size: 1.8rem; display: flex; align-items: center; justify-content: center; gap: 12px; }
+        .container { max-width: 1200px; margin: 0 auto; padding: 1rem; }
+        #map { height: 500px; border-radius: 12px; border: 3px solid #334155; margin-bottom: 1.5rem; }
+        @media (max-width: 768px) { #map { height: 60vh; } }
+        .section { background: var(--card); border-radius: 12px; padding: 1.25rem; margin-bottom: 1.5rem; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.3); }
+        h2 { color: var(--accent); margin-top: 0; border-bottom: 2px solid #334155; padding-bottom: 0.5rem; }
+        button { background: var(--accent); color: #1e2937; border: none; padding: 0.75rem 1.5rem; border-radius: 8px; font-weight: bold; cursor: pointer; margin: 5px 5px 5px 0; }
+        button:hover { background: #fbbf24; }
+        button.danger { background: #ef4444; }
+        button.danger:hover { background: #f87171; }
+        textarea { width: 100%; height: 120px; background: #334155; color: white; border: 1px solid #475569; border-radius: 8px; padding: 0.75rem; resize: vertical; }
+        .log-entry { background: #334155; padding: 0.75rem; border-radius: 8px; margin-bottom: 0.75rem; }
+        .frequency { background: #1e2937; padding: 0.75rem; border-radius: 8px; margin-bottom: 0.5rem; }
+        footer { text-align: center; padding: 2rem 1rem; font-size: 0.9rem; color: #64748b; }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>🚂 Quinton Train Tracker</h1>
+        <p>CN Watrous Subdivision • Mile 77.6</p>
+    </header>
+
+    <div class="container">
+        <div class="section"><div id="map"></div></div>
+
+        <div class="section">
+            <h2>📍 About the Line</h2>
+            <p>Quinton, Saskatchewan — Mile 77.6 on the CN Watrous Subdivision.</p>
+            <p><strong>Typical traffic:</strong> Grain, potash, intermodal, manifest freights.</p>
+            <p><strong>Safety:</strong> Stay off the tracks. Use public crossings only.</p>
+        </div>
+
+        <div class="section">
+            <h2>📻 Scanner Frequencies</h2>
+            <div class="frequency"><strong>161.415 MHz</strong> – CN Road (Primary)</div>
+            <div class="frequency"><strong>161.205 MHz</strong> – CN Road (Secondary)</div>
+            <div class="frequency"><strong>160.425 MHz</strong> – Yard / Switching</div>
+        </div>
+
+        <div class="section">
+            <h2>📝 Sightings Log</h2>
+            <textarea id="logInput" placeholder="Example: Westbound grain train with 3 locos"></textarea><br><br>
+            <button onclick="saveLogEntry()">Save Sighting</button>
+            <button onclick="clearLog()" class="danger">Clear Log</button>
+            
+            <h3 style="margin-top: 1.5rem;">Recent Sightings</h3>
+            <div id="logEntries" style="max-height: 300px; overflow-y: auto;"></div>
+        </div>
+
+        <div class="section">
+            <h2>🔗 Resources</h2>
+            <ul>
+                <li><a href="https://www.openrailwaymap.org/" target="_blank">OpenRailwayMap</a> — Live track map</li>
+                <li><a href="https://broadcastify.com/" target="_blank">Broadcastify</a> — Live scanner feeds</li>
+            </ul>
+        </div>
+    </div>
+
+    <footer>
+        <p>Hobby project for Saskatchewan railfans • Stay safe!</p>
+    </footer>
+
+    <script>
+        const map = L.map('map').setView([51.2314, -104.2427], 13);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {attribution: '&copy; OpenStreetMap'}).addTo(map);
+        L.tileLayer('https://{s}.tiles.openrailwaymap.org/standard/{z}/{x}/{y}.png', {opacity: 0.85}).addTo(map);
+
+        L.marker([51.2314, -104.2427]).addTo(map).bindPopup('<b>Quinton, SK</b><br>Mile 77.6').openPopup();
+
+        function loadLog() {
+            const entries = JSON.parse(localStorage.getItem('quintonLog') || '[]');
+            document.getElementById('logEntries').innerHTML = entries.map(e => 
+                <div class="log-entry"><strong>\( {e.time}</strong><br> \){e.text}</div>
+            ).join('');
+        }
+
+        function saveLogEntry() {
+            const text = document.getElementById('logInput').value.trim();
+            if (!text) return;
+            const entries = JSON.parse(localStorage.getItem('quintonLog') || '[]');
+            const time = new Date().toLocaleString('en-CA', {year:'numeric', month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'});
+            entries.unshift({time, text});
+            if (entries.length > 30) entries.pop();
+            localStorage.setItem('quintonLog', JSON.stringify(entries));
+            document.getElementById('logInput').value = '';
+            loadLog();
+        }
+
+        function clearLog() {
+            if (confirm('Clear all sighting logs?')) {
+                localStorage.removeItem('quintonLog');
+                loadLog();
+            }
+        }
+
+        window.onload = loadLog;
+    </script>
+</body>
+</html>
