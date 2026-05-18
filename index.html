@@ -23,6 +23,7 @@
         button.danger { background: #ef4444; }
         .stat { font-size: 1.4rem; font-weight: bold; color: var(--accent); }
         .log-entry { background: #334155; padding: 0.75rem; border-radius: 8px; margin-bottom: 0.75rem; }
+        .weather { font-size: 1.1rem; }
         footer { text-align: center; padding: 2rem 1rem; font-size: 0.9rem; color: #64748b; }
     </style>
 </head>
@@ -35,33 +36,40 @@
     <div class="container">
         <div class="section"><div id="map"></div></div>
 
-        <!-- New Train Counter -->
+        <!-- Train Counter -->
         <div class="section">
             <h2>🚂 Train Counter</h2>
             <button onclick="recordTrain()" class="big">🚂 Train Passed Now</button>
-            
             <p><strong>Today:</strong> <span id="todayCount" class="stat">0</span> trains</p>
-            <p><strong>Total Recorded:</strong> <span id="totalCount" class="stat">0</span></p>
-            <p><strong>Avg per day:</strong> <span id="avgPerDay" class="stat">0</span></p>
+            <p><strong>Total:</strong> <span id="totalCount" class="stat">0</span></p>
+            <p><strong>Avg/day:</strong> <span id="avgPerDay" class="stat">0</span></p>
             <p><strong>Last train:</strong> <span id="lastTrain">—</span></p>
-            
-            <button onclick="clearTrainData()" class="danger" style="margin-top:10px;">Reset All Data</button>
+            <button onclick="clearTrainData()" class="danger" style="margin-top:8px;">Reset Counter</button>
         </div>
 
+        <!-- Weather + Sunset -->
+        <div class="section">
+            <h2>🌤️ Current Conditions</h2>
+            <div id="weather" class="weather">Loading weather...</div>
+            <div id="sunInfo" style="margin-top:10px;"></div>
+        </div>
+
+        <!-- Best Times -->
+        <div class="section">
+            <h2>⏰ Best Time to Spot</h2>
+            <p><strong>Morning (6-10am)</strong> — Eastbound grain & potash often</p>
+            <p><strong>Evening (4-9pm)</strong> — Westbound intermodal & manifests common</p>
+            <p><strong>Golden Hour</strong> — Great for photos \~30 min before/after sunset</p>
+        </div>
+
+        <!-- Sightings Log -->
         <div class="section">
             <h2>📝 Sightings Log</h2>
             <textarea id="logInput" placeholder="Example: Westbound grain train with 3 locos"></textarea><br><br>
             <button onclick="saveLogEntry()">Save Sighting</button>
             <button onclick="clearLog()" class="danger">Clear Log</button>
-            
             <h3 style="margin-top: 1.5rem;">Recent Sightings</h3>
-            <div id="logEntries" style="max-height: 250px; overflow-y: auto;"></div>
-        </div>
-
-        <div class="section">
-            <h2>📍 About the Line</h2>
-            <p>Quinton, SK — Mile 77.6 on the CN Watrous Subdivision.</p>
-            <p><strong>Typical traffic:</strong> Grain, potash, intermodal, manifest freights.</p>
+            <div id="logEntries" style="max-height: 220px; overflow-y: auto;"></div>
         </div>
 
         <div class="section">
@@ -73,92 +81,20 @@
     </div>
 
     <footer>
-        <p>Hobby project for Saskatchewan railfans • Tap the big button when a train passes!</p>
+        <p>Hobby project for Saskatchewan railfans • Tap the big button when trains pass!</p>
     </footer>
 
     <script>
+        // Map with more markers
         const map = L.map('map').setView([51.2314, -104.2427], 13);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {attribution: '&copy; OpenStreetMap'}).addTo(map);
         L.tileLayer('https://{s}.tiles.openrailwaymap.org/standard/{z}/{x}/{y}.png', {opacity: 0.85}).addTo(map);
-        L.marker([51.2314, -104.2427]).addTo(map).bindPopup('<b>Quinton, SK</b><br>Mile 77.6').openPopup();
-        setTimeout(() => map.invalidateSize(), 400);
 
-        // Train Counter
-        let trainData = JSON.parse(localStorage.getItem('quintonTrainData') || '[]');
+        // Quinton
+        L.marker([51.2314, -104.2427]).addTo(map)
+            .bindPopup('<b>Quinton, SK</b><br>Mile 77.6 - Main Spot').openPopup();
 
-        function saveTrainData() {
-            localStorage.setItem('quintonTrainData', JSON.stringify(trainData));
-            updateStats();
-        }
-
-        function recordTrain() {
-            trainData.unshift(Date.now());
-            saveTrainData();
-            
-            // Auto add to log
-            const logInput = document.getElementById('logInput');
-            logInput.value = "Train passed by (auto-recorded)";
-            saveLogEntry();
-        }
-
-        function updateStats() {
-            const now = Date.now();
-            const todayStart = now - (24 * 60 * 60 * 1000);
-            
-            const todayCount = trainData.filter(t => t > todayStart).length;
-            const total = trainData.length;
-            
-            const days = Math.max(1, (now - Math.min(...trainData, now)) / (24*60*60*1000));
-            const avg = (total / days).toFixed(1);
-            
-            document.getElementById('todayCount').textContent = todayCount;
-            document.getElementById('totalCount').textContent = total;
-            document.getElementById('avgPerDay').textContent = avg;
-            
-            if (trainData.length > 0) {
-                const last = new Date(trainData[0]);
-                document.getElementById('lastTrain').textContent = last.toLocaleString('en-CA', {hour:'numeric', minute:'2-digit', month:'short', day:'numeric'});
-            }
-        }
-
-        function clearTrainData() {
-            if (confirm('Reset all train counter data?')) {
-                trainData = [];
-                saveTrainData();
-            }
-        }
-
-        // Sightings Log (kept from before)
-        function loadLog() {
-            const entries = JSON.parse(localStorage.getItem('quintonLog') || '[]');
-            document.getElementById('logEntries').innerHTML = entries.map(e => 
-                `<div class="log-entry"><strong>\( {e.time}</strong><br> \){e.text}</div>`
-            ).join('');
-        }
-
-        function saveLogEntry() {
-            const text = document.getElementById('logInput').value.trim();
-            if (!text) return;
-            const entries = JSON.parse(localStorage.getItem('quintonLog') || '[]');
-            const time = new Date().toLocaleString('en-CA', {year:'numeric', month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'});
-            entries.unshift({time, text});
-            if (entries.length > 30) entries.pop();
-            localStorage.setItem('quintonLog', JSON.stringify(entries));
-            document.getElementById('logInput').value = '';
-            loadLog();
-        }
-
-        function clearLog() {
-            if (confirm('Clear sighting log?')) {
-                localStorage.removeItem('quintonLog');
-                loadLog();
-            }
-        }
-
-        window.onload = () => {
-            updateStats();
-            loadLog();
-        };
-    </script>
-</body>
-</html>
+        // Nearby spots
+        L.marker([51.40, -104.10]).addTo(map).bindPopup('<b>Raymore Area</b><br>Good views, active mainline');
+        L.marker([51.52, -104.45]).addTo(map).bindPopup('<b>Nokomis Area</b><br>Frequent meets & siding');
+        L.marker([51.18
