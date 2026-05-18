@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🚂 Quinton Train Tracker</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        :root {
+            --bg: #0f172a;
+            --card: #1e2937;
+            --accent: #f59e0b;
+            --text: #e2e8f0;
+        }
+        body {
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.5;
+        }
+        header {
+            background: linear-gradient(135deg, #1e2937, #334155);
+            padding: 1rem;
+            text-align: center;
+            border-bottom: 4px solid var(--accent);
+        }
+        h1 {
+            margin: 0;
+            font-size: 1.8rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 1rem;
+        }
+        #map {
+            height: 500px;
+            border-radius: 12px;
+            border: 3px solid #334155;
+            margin-bottom: 1.5rem;
+        }
+        @media (max-width: 768px) {
+            #map { height: 60vh; }
+        }
+        .section {
+            background: var(--card);
+            border-radius: 12px;
+            padding: 1.25rem;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.3);
+        }
+        h2 {
+            color: var(--accent);
+            margin-top: 0;
+            border-bottom: 2px solid #334155;
+            padding-bottom: 0.5rem;
+        }
+        button {
+            background: var(--accent);
+            color: #1e2937;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            margin: 0.25rem 0.5rem 0.25rem 0;
+        }
+        button:hover { background: #fbbf24; }
+        button.danger { background: #ef4444; }
+        button.danger:hover { background: #f87171; }
+        textarea {
+            width: 100%;
+            height: 120px;
+            background: #334155;
+            color: white;
+            border: 1px solid #475569;
+            border-radius: 8px;
+            padding: 0.75rem;
+            resize: vertical;
+        }
+        .log-entry {
+            background: #334155;
+            padding: 0.75rem;
+            border-radius: 8px;
+            margin-bottom: 0.75rem;
+            font-size: 0.95rem;
+        }
+        .frequency {
+            background: #1e2937;
+            padding: 0.75rem;
+            border-radius: 8px;
+            margin-bottom: 0.5rem;
+        }
+        footer {
+            text-align: center;
+            padding: 2rem 1rem;
+            font-size: 0.9rem;
+            color: #64748b;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>🚂 Quinton Train Tracker</h1>
+        <p style="margin: 8px 0 0; opacity: 0.9;">CN Watrous Subdivision • Mile 77.6</p>
+    </header>
+
+    <div class="container">
+        <div class="section">
+            <div id="map"></div>
+        </div>
+
+        <div class="section">
+            <h2>📍 About the CN Watrous Subdivision</h2>
+            <p>The CN Watrous Subdivision runs through central Saskatchewan, connecting Saskatoon to Winnipeg via the main line. Quinton is located at approximately <strong>Mile 77.6</strong>.</p>
+            <p><strong>Typical traffic:</strong> Grain, potash, intermodal containers, and occasional manifest freights.</p>
+            <p><strong>Safety Note:</strong> Stay off the tracks. Use public crossings only. Trains can appear from either direction at any time.</p>
+        </div>
+
+        <div class="section">
+            <h2>📻 Scanner Frequencies (CN Prairies)</h2>
+            <div class="frequency"><strong>161.415 MHz</strong> – CN Road (Primary)</div>
+            <div class="frequency"><strong>161.205 MHz</strong> – CN Road (Secondary)</div>
+            <div class="frequency"><strong>160.425 MHz</strong> – CN Yard / Switching</div>
+            <div class="frequency"><strong>161.115 MHz</strong> – CN Dispatcher (often)</div>
+            <p><small>Always confirm local usage. Use a good antenna near the tracks for best reception.</small></p>
+        </div>
+
+        <div class="section">
+            <h2>📝 Manual Sightings Log</h2>
+            <textarea id="logInput" placeholder="Example: Westbound grain train with 3 locos (CN 8000 series)"></textarea>
+            <br><br>
+            <button onclick="saveLogEntry()">Save Sighting</button>
+            <button onclick="clearLog()" class="danger">Clear All Logs</button>
+            
+            <h3 style="margin-top: 1.5rem;">Recent Sightings</h3>
+            <div id="logEntries" style="max-height: 300px; overflow-y: auto;"></div>
+        </div>
+
+        <div class="section">
+            <h2>🔗 Tips & Resources</h2>
+            <ul>
+                <li><a href="https://www.openrailwaymap.org/" target="_blank">OpenRailwayMap</a> – Live track overlay</li>
+                <li><a href="https://broadcastify.com/" target="_blank">Broadcastify</a> – Live rail scanner feeds</li>
+                <li>Railfan apps: <strong>Railway Scanner</strong> or <strong>Train Dispatcher</strong></li>
+                <li>Saskatchewan Railfan groups on Facebook</li>
+            </ul>
+        </div>
+    </div>
+
+    <footer>
+        <p><strong>Disclaimer:</strong> No real-time train data is available for CN freight. This app is for enthusiast/educational use only.<br>
+        Always prioritize safety and respect private property.</p>
+        <p style="margin-top: 1rem; font-size: 0.85rem;">Made for railfans in Quinton, Saskatchewan • Single-file web app</p>
+    </footer>
+
+    <script>
+        // Accurate Quinton coordinates
+        const map = L.map('map').setView([51.2314, -104.2427], 13);
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap contributors',
+            maxZoom: 19
+        }).addTo(map);
+
+        L.tileLayer('https://{s}.tiles.openrailwaymap.org/standard/{z}/{x}/{y}.png', {
+            attribution: 'Railway data © OpenRailwayMap',
+            maxZoom: 19,
+            opacity: 0.85
+        }).addTo(map);
+
+        L.marker([51.2314, -104.2427]).addTo(map)
+            .bindPopup(`
+                <b>Quinton, SK</b><br>
+                Mile 77.6 - CN Watrous Subdivision<br>
+                <small>Great spot for westbound grain and potash trains</small>
+            `).openPopup();
+
+        L.marker([51.40, -104.10]).addTo(map)
+            .bindPopup('<b>Raymore Area</b><br>Active mainline');
+
+        L.marker([51.52, -104.45]).addTo(map)
+            .bindPopup('<b>Nokomis Area</b><br>Frequent meets');
+
+        function loadLog() {
+            const entries = JSON.parse(localStorage.getItem('quintonLog') || '[]');
+            const container = document.getElementById('logEntries');
+            container.innerHTML = '';
+            
+            entries.forEach(entry => {
+                const div = document.createElement('div');
+                div.className = 'log-entry';
+                div.innerHTML = <strong>\( {entry.time}</strong><br> \){entry.text};
+                container.appendChild(div);
+            });
+        }
+
+        function saveLogEntry() {
+            const input = document.getElementById('logInput');
+            const text = input.value.trim();
+            if (!text) return;
+
+            const entries = JSON.parse(localStorage.getItem('quintonLog') || '[]');
+            const now = new Date();
+            const timeStr = now.toLocaleString('en-CA', { 
+                year: 'numeric', month: 'short', day: 'numeric',
+                hour: '2-digit', minute: '2-digit' 
+            });
+
+            entries.unshift({ time: timeStr, text: text });
+            if (entries.length > 30) entries.pop();
+
+            localStorage.setItem('quintonLog', JSON.stringify(entries));
+            input.value = '';
+            loadLog();
+        }
+
+        function clearLog() {
+            if (confirm('Clear all sighting logs?')) {
+                localStorage.removeItem('quintonLog');
+                loadLog();
+            }
+        }
+
+        window.onload = () => {
+            loadLog();
+            
+            document.getElementById('logInput').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    saveLogEntry();
+                }
+            });
+        };
+    </script>
+</body>
+</html>
