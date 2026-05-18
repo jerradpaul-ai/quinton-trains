@@ -6,6 +6,7 @@
     <title>🚂 Quinton Train Tracker</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
     <style>
         :root { --bg: #0f172a; --card: #1e2937; --accent: #f59e0b; --text: #e2e8f0; }
         body { margin: 0; font-family: system-ui, sans-serif; background: var(--bg); color: var(--text); line-height: 1.5; }
@@ -18,12 +19,12 @@
         h2 { color: var(--accent); margin-top: 0; border-bottom: 2px solid #334155; padding-bottom: 0.5rem; }
         button { background: var(--accent); color: #1e2937; border: none; padding: 0.9rem 1.5rem; border-radius: 8px; font-weight: bold; cursor: pointer; margin: 5px 8px 5px 0; font-size: 1.1rem; }
         button:hover { background: #fbbf24; }
-        button.big { background: #10b981; color: white; padding: 1.2rem 2rem; font-size: 1.4rem; width: 100%; margin: 12px 0; }
+        button.big { background: #10b981; color: white; padding: 1.2rem 2rem; font-size: 1.4rem; width: 100%; margin: 12px 0; animation: pulse 2s infinite; }
         button.big:hover { background: #34d399; }
+        @keyframes pulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.05); } }
         button.danger { background: #ef4444; color: white; }
         .stat { font-size: 1.5rem; font-weight: bold; color: var(--accent); }
-        .log-entry { background: #334155; padding: 0.75rem; border-radius: 8px; margin-bottom: 0.75rem; }
-        textarea { width: 100%; min-height: 80px; background: #334155; color: var(--text); border: 2px solid #475569; border-radius: 8px; padding: 0.75rem; font-size: 1rem; resize: vertical; }
+        .badge { background: #eab308; color: #1e2937; padding: 4px 12px; border-radius: 9999px; font-size: 0.9rem; margin: 4px; display: inline-block; }
         .live-info { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
         @media (max-width: 600px) { .live-info { grid-template-columns: 1fr; } }
         footer { text-align: center; padding: 2rem 1rem; font-size: 0.9rem; color: #64748b; }
@@ -78,6 +79,15 @@
             </div>
         </div>
 
+        <!-- Railfan Progress (new fun section) -->
+        <div class="section">
+            <h2>🏆 Railfan Progress</h2>
+            <p><strong>🔥 Daily Streak:</strong> <span id="streak" class="stat">0 days</span></p>
+            <p><strong>🏅 Railfan Score:</strong> <span id="score" class="stat">0</span></p>
+            <div id="badges" style="margin: 12px 0;"></div>
+            <button onclick="shareProgress()" style="background:#06b67f;width:100%;margin-top:8px;">📤 Share Today's Progress</button>
+        </div>
+
         <div class="section">
             <h2>📍 About the Line</h2>
             <p>Quinton, SK — Mile 77.6 on the CN Watrous Subdivision.</p>
@@ -97,18 +107,18 @@
     </footer>
 
     <script>
-        // Map (unchanged)
+        // Map
         const map = L.map('map').setView([51.2314, -104.2427], 13);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OpenStreetMap' }).addTo(map);
         L.tileLayer('https://{s}.tiles.openrailwaymap.org/standard/{z}/{x}/{y}.png', { opacity: 0.85 }).addTo(map);
         L.marker([51.2314, -104.2427]).addTo(map).bindPopup('<b>Quinton, SK</b><br>Mile 77.6 - Main Spot').openPopup();
         setTimeout(() => map.invalidateSize(), 600);
 
-        // Train Counter + Log (unchanged from previous version)
+        // Train Counter + Log
         let trainData = JSON.parse(localStorage.getItem('quintonTrainData') || '[]');
         let logEntries = JSON.parse(localStorage.getItem('quintonLogEntries') || '[]');
 
-        function updateStats() { /* same as before */ 
+        function updateStats() {
             const now = Date.now();
             const todayStart = now - 86400000;
             const todayCount = trainData.filter(t => t > todayStart).length;
@@ -129,24 +139,24 @@
             }
         }
 
-        function recordTrain() { /* same */ 
+        function recordTrain() {
             trainData.unshift(Date.now());
             localStorage.setItem('quintonTrainData', JSON.stringify(trainData));
             updateStats();
+            celebrate();
+            updateProgress();
+            
             const logInput = document.getElementById('logInput');
             logInput.value = "Train passed (auto-recorded)";
             saveLogEntry();
         }
 
-        function clearTrainData() { /* same */ 
-            if (confirm('Reset ALL train counter data?\n\nThis cannot be undone.')) {
-                trainData = [];
-                localStorage.setItem('quintonTrainData', JSON.stringify(trainData));
-                updateStats();
-            }
+        function celebrate() {
+            confetti({ particleCount: 150, spread: 80, origin: { y: 0.6 } });
         }
 
-        function saveLogEntry() { /* same */ 
+        // Sightings Log
+        function saveLogEntry() {
             const input = document.getElementById('logInput');
             const text = input.value.trim();
             if (!text) return;
@@ -162,7 +172,7 @@
             saveLogEntry();
         }
 
-        function renderLog() { /* same */ 
+        function renderLog() {
             const container = document.getElementById('logEntries');
             if (logEntries.length === 0) {
                 container.innerHTML = `<p style="color:#64748b; font-style:italic; padding: 1rem 0;">No sightings yet. Add one above!</p>`;
@@ -176,7 +186,7 @@
             `).join('');
         }
 
-        function clearLog() { /* same */ 
+        function clearLog() {
             if (confirm('Clear ALL log entries?\n\nThis cannot be undone.')) {
                 logEntries = [];
                 localStorage.setItem('quintonLogEntries', JSON.stringify(logEntries));
@@ -184,57 +194,82 @@
             }
         }
 
-        // New: Live Weather (Open-Meteo - free, no key)
-        async function loadWeather() {
-            try {
-                const res = await fetch('https://api.open-meteo.com/v1/forecast?latitude=51.2314&longitude=-104.2427&current=temperature_2m,relative_humidity_2m,wind_speed_10m,weather_code&timezone=America/Regina');
-                const data = await res.json();
-                const w = data.current;
-                const condition = {
-                    0: "☀️ Clear", 1: "🌤️ Mainly clear", 2: "⛅ Partly cloudy", 3: "☁️ Overcast",
-                    45: "🌫️ Fog", 48: "🌫️ Freezing fog", 51: "🌧️ Light drizzle", 61: "🌧️ Rain",
-                    71: "❄️ Snow", 95: "⛈️ Thunderstorm"
-                }[w.weather_code] || "🌥️ Cloudy";
-                
-                document.getElementById('weather').innerHTML = `
-                    ${condition}<br>
-                    <strong>${w.temperature_2m}°C</strong> • Wind ${w.wind_speed_10m} km/h
-                `;
-            } catch(e) {
-                document.getElementById('weather').textContent = "Weather unavailable";
+        function clearTrainData() {
+            if (confirm('Reset ALL train counter data?\n\nThis cannot be undone.')) {
+                trainData = [];
+                localStorage.setItem('quintonTrainData', JSON.stringify(trainData));
+                updateStats();
             }
         }
 
-        // New: Visitor counter (free public counter)
+        // Live Weather
+        async function loadWeather() {
+            try {
+                const res = await fetch('https://api.open-meteo.com/v1/forecast?latitude=51.2314&longitude=-104.2427&current=temperature_2m,wind_speed_10m,weather_code&timezone=America/Regina');
+                const data = await res.json();
+                const w = data.current;
+                const condition = {0:"☀️ Clear",1:"🌤️ Clear",2:"⛅ Partly",3:"☁️ Overcast",45:"🌫️ Fog",61:"🌧️ Rain",71:"❄️ Snow",95:"⛈️ Thunder"}[w.weather_code] || "🌥️";
+                document.getElementById('weather').innerHTML = `\( {condition}<br><strong> \){w.temperature_2m}°C</strong> • ${w.wind_speed_10m} km/h`;
+            } catch(e) { document.getElementById('weather').textContent = "Weather unavailable"; }
+        }
+
+        // Visitors
         async function loadVisitors() {
             try {
                 const res = await fetch('https://api.countapi.xyz/hit/quinton-train-tracker/visits');
                 const data = await res.json();
                 document.getElementById('visitors').textContent = data.value.toLocaleString();
-            } catch(e) {
-                document.getElementById('visitors').textContent = "—";
-            }
+            } catch(e) {}
         }
 
-        // New: Live time in CST
+        // Live time
         function updateTime() {
             setInterval(() => {
-                const timeEl = document.getElementById('localTime');
-                const now = new Date().toLocaleString('en-CA', {timeZone: 'America/Regina', hour: 'numeric', minute: '2-digit', hour12: true});
-                timeEl.textContent = now;
+                document.getElementById('localTime').textContent = new Date().toLocaleString('en-CA', {timeZone: 'America/Regina', hour:'numeric', minute:'2-digit', hour12:true});
             }, 10000);
         }
 
-        // Init everything
+        // Fun Progress
+        let streak = parseInt(localStorage.getItem('quintonStreak') || '0');
+        let lastRecordDate = localStorage.getItem('quintonLastRecordDate');
+
+        function updateProgress() {
+            const today = new Date().toDateString();
+            if (lastRecordDate !== today) {
+                if (lastRecordDate) streak++;
+                lastRecordDate = today;
+                localStorage.setItem('quintonLastRecordDate', today);
+                localStorage.setItem('quintonStreak', streak);
+            }
+            document.getElementById('streak').innerHTML = `${streak} day streak <span style="font-size:1.8rem">🔥</span>`;
+            document.getElementById('score').textContent = (trainData.length * 10) + (logEntries.length * 5);
+
+            const badgesDiv = document.getElementById('badges');
+            badgesDiv.innerHTML = `
+                ${trainData.length >= 1 ? '<span class="badge">First Train 🏁</span>' : ''}
+                ${trainData.length >= 10 ? '<span class="badge">10 Trains 🎟️</span>' : ''}
+                ${streak >= 3 ? '<span class="badge">3-Day Streak 🔥</span>' : ''}
+                ${trainData.length >= 50 ? '<span class="badge">Railfan Legend 🏆</span>' : ''}
+            `;
+        }
+
+        function shareProgress() {
+            const todayCount = trainData.filter(t => Date.now() - t < 86400000).length;
+            const msg = `🚂 Just spotted ${todayCount} trains today at Quinton, SK!\nStreak: ${streak} days 🔥\nTotal score: ${document.getElementById('score').textContent}\nhttps://jerradpaul-ai.github.io/quinton-trains/`;
+            navigator.clipboard.writeText(msg).then(() => alert("✅ Copied to clipboard — go post it!"));
+        }
+
         function init() {
             updateStats();
             renderLog();
             loadWeather();
             loadVisitors();
             updateTime();
+            updateProgress();
             
-            // T key shortcut
-            document.addEventListener('keydown', e => { if (e.key === 't' || e.key === 'T') { e.preventDefault(); recordTrain(); } });
+            document.addEventListener('keydown', e => {
+                if (e.key === 't' || e.key === 'T') { e.preventDefault(); recordTrain(); }
+            });
         }
 
         window.addEventListener('load', init);
