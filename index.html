@@ -23,6 +23,7 @@
         button.danger { background: #ef4444; color: white; }
         .stat { font-size: 1.5rem; font-weight: bold; color: var(--accent); }
         .log-entry { background: #334155; padding: 0.75rem; border-radius: 8px; margin-bottom: 0.75rem; }
+        textarea { width: 100%; min-height: 80px; background: #334155; color: var(--text); border: 2px solid #475569; border-radius: 8px; padding: 0.75rem; font-size: 1rem; resize: vertical; }
         footer { text-align: center; padding: 2rem 1rem; font-size: 0.9rem; color: #64748b; }
     </style>
 </head>
@@ -40,12 +41,12 @@
             <h2>🚂 Train Counter</h2>
             <button onclick="recordTrain()" class="big">🚂 Train Passed Now</button>
             
-            <p><strong>Today:</strong> <span id="todayCount" class="stat">0</span></p>
+            <p><strong>Today (24h):</strong> <span id="todayCount" class="stat">0</span></p>
             <p><strong>Total Recorded:</strong> <span id="totalCount" class="stat">0</span></p>
             <p><strong>Avg per day:</strong> <span id="avgPerDay" class="stat">0.0</span></p>
             <p><strong>Last train:</strong> <span id="lastTrain">—</span></p>
             
-            <button onclick="clearTrainData()" class="danger">Reset All Data</button>
+            <button onclick="clearTrainData()" class="danger">Reset All Train Data</button>
         </div>
 
         <!-- Sightings Log -->
@@ -78,37 +79,57 @@
     </footer>
 
     <script>
-        // Map
+        // ====================== MAP ======================
         const map = L.map('map').setView([51.2314, -104.2427], 13);
+        
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '&copy; OpenStreetMap'
+            attribution: '&copy; OpenStreetMap contributors'
         }).addTo(map);
+        
         L.tileLayer('https://{s}.tiles.openrailwaymap.org/standard/{z}/{x}/{y}.png', {
-            opacity: 0.85
+            opacity: 0.85,
+            attribution: '&copy; OpenRailwayMap'
         }).addTo(map);
 
         L.marker([51.2314, -104.2427]).addTo(map)
-            .bindPopup('<b>Quinton, SK</b><br>Mile 77.6 - Main Spot').openPopup();
+            .bindPopup('<b>Quinton, SK</b><br>Mile 77.6 - Main Spot')
+            .openPopup();
 
+        // Force map to resize after CSS loads
         setTimeout(() => map.invalidateSize(), 600);
 
-        // Train Counter
+        // ====================== TRAIN COUNTER ======================
         let trainData = JSON.parse(localStorage.getItem('quintonTrainData') || '[]');
 
         function updateStats() {
             const now = Date.now();
-            const todayStart = now - 86400000; // 24 hours
+            const todayStart = now - 86400000; // rolling 24 hours
+            
+            // Today count (last 24h)
             const todayCount = trainData.filter(t => t > todayStart).length;
+            
             const total = trainData.length;
-            const days = Math.max(1, (now - (trainData[0] || now)) / 86400000);
+            
+            // Fix: oldest timestamp is at the end of the array (because we use unshift)
+            const oldest = trainData.length > 0 ? trainData[trainData.length - 1] : now;
+            const days = Math.max(1, (now - oldest) / 86400000);
             
             document.getElementById('todayCount').textContent = todayCount;
             document.getElementById('totalCount').textContent = total;
             document.getElementById('avgPerDay').textContent = (total / days).toFixed(1);
             
+            // Last train display
+            const lastEl = document.getElementById('lastTrain');
             if (trainData.length > 0) {
                 const last = new Date(trainData[0]);
-                document.getElementById('lastTrain').textContent = last.toLocaleString('en-CA', {month:'short', day:'numeric', hour:'numeric', minute:'2-digit'});
+                lastEl.textContent = last.toLocaleString('en-CA', {
+                    month: 'short',
+                    day: 'numeric',
+                    hour: 'numeric',
+                    minute: '2-digit'
+                });
+            } else {
+                lastEl.textContent = '—';
             }
         }
 
@@ -117,10 +138,85 @@
             localStorage.setItem('quintonTrainData', JSON.stringify(trainData));
             updateStats();
             
-            // Optional auto log
-            document.getElementById('logInput').value = "Train passed (auto-recorded)";
+            // Auto-log the train passage
+            const logInput = document.getElementById('logInput');
+            logInput.value = "Train passed (auto-recorded)";
             saveLogEntry();
         }
 
         function clearTrainData() {
-            if (
+            if (confirm('Reset ALL train counter data?\n\nThis cannot be undone.')) {
+                trainData = [];
+                localStorage.setItem('quintonTrainData', JSON.stringify(trainData));
+                updateStats();
+            }
+        }
+
+        // ====================== SIGHTINGS LOG ======================
+        let logEntries = JSON.parse(localStorage.getItem('quintonLogEntries') || '[]');
+
+        function saveLogEntry() {
+            const input = document.getElementById('logInput');
+            const text = input.value.trim();
+            
+            if (!text) return;
+            
+            logEntries.unshift({
+                time: Date.now(),
+                text: text
+            });
+            
+            localStorage.setItem('quintonLogEntries', JSON.stringify(logEntries));
+            input.value = '';
+            renderLog();
+        }
+
+        function renderLog() {
+            const container = document.getElementById('logEntries');
+            if (logEntries.length === 0) {
+                container.innerHTML = `<p style="color:#64748b; font-style:italic; padding: 1rem 0;">No sightings yet. Add one above!</p>`;
+                return;
+            }
+            
+            container.innerHTML = logEntries.map(entry => `
+                <div class="log-entry">
+                    <small style="color:#94a3b8;">
+                        ${new Date(entry.time).toLocaleString('en-CA', {
+                            month: 'short',
+                            day: 'numeric',
+                            hour: 'numeric',
+                            minute: '2-digit'
+                        })}
+                    </small>
+                    <p style="margin: 6px 0 0 0; white-space: pre-wrap;">${entry.text}</p>
+                </div>
+            `).join('');
+        }
+
+        function clearLog() {
+            if (confirm('Clear ALL log entries?\n\nThis cannot be undone.')) {
+                logEntries = [];
+                localStorage.setItem('quintonLogEntries', JSON.stringify(logEntries));
+                renderLog();
+            }
+        }
+
+        // ====================== INITIALIZATION ======================
+        function init() {
+            updateStats();
+            renderLog();
+            
+            // Optional: keyboard shortcut (T key) for quick train recording
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 't' || e.key === 'T') {
+                    e.preventDefault();
+                    recordTrain();
+                }
+            });
+        }
+
+        // Start the app
+        window.addEventListener('load', init);
+    </script>
+</body>
+</html>
