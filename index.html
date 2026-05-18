@@ -12,15 +12,16 @@
         header { background: linear-gradient(135deg, #1e2937, #334155); padding: 1rem; text-align: center; border-bottom: 4px solid var(--accent); }
         h1 { margin: 0; font-size: 1.8rem; display: flex; align-items: center; justify-content: center; gap: 12px; }
         .container { max-width: 1200px; margin: 0 auto; padding: 1rem; }
-        #map { height: 420px; border-radius: 12px; border: 3px solid #334155; margin-bottom: 1.5rem; width: 100%; }
-        @media (max-width: 768px) { #map { height: 340px; } }
+        #map { height: 380px; border-radius: 12px; border: 3px solid #334155; margin-bottom: 1.5rem; width: 100%; }
+        @media (max-width: 768px) { #map { height: 300px; } }
         .section { background: var(--card); border-radius: 12px; padding: 1.25rem; margin-bottom: 1.5rem; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.3); }
         h2 { color: var(--accent); margin-top: 0; border-bottom: 2px solid #334155; padding-bottom: 0.5rem; }
-        button { background: var(--accent); color: #1e2937; border: none; padding: 0.75rem 1.5rem; border-radius: 8px; font-weight: bold; cursor: pointer; margin: 5px 8px 5px 0; }
+        button { background: var(--accent); color: #1e2937; border: none; padding: 0.9rem 1.5rem; border-radius: 8px; font-weight: bold; cursor: pointer; margin: 5px 8px 5px 0; font-size: 1.1rem; }
         button:hover { background: #fbbf24; }
-        button.danger { background: #ef4444; color: white; }
-        button.danger:hover { background: #f87171; }
-        textarea { width: 100%; height: 110px; background: #334155; color: white; border: 1px solid #475569; border-radius: 8px; padding: 0.75rem; resize: vertical; }
+        button.big { background: #10b981; color: white; padding: 1.2rem 2rem; font-size: 1.3rem; width: 100%; margin: 10px 0; }
+        button.big:hover { background: #34d399; }
+        button.danger { background: #ef4444; }
+        .stat { font-size: 1.4rem; font-weight: bold; color: var(--accent); }
         .log-entry { background: #334155; padding: 0.75rem; border-radius: 8px; margin-bottom: 0.75rem; }
         footer { text-align: center; padding: 2rem 1rem; font-size: 0.9rem; color: #64748b; }
     </style>
@@ -34,11 +35,33 @@
     <div class="container">
         <div class="section"><div id="map"></div></div>
 
+        <!-- New Train Counter -->
+        <div class="section">
+            <h2>🚂 Train Counter</h2>
+            <button onclick="recordTrain()" class="big">🚂 Train Passed Now</button>
+            
+            <p><strong>Today:</strong> <span id="todayCount" class="stat">0</span> trains</p>
+            <p><strong>Total Recorded:</strong> <span id="totalCount" class="stat">0</span></p>
+            <p><strong>Avg per day:</strong> <span id="avgPerDay" class="stat">0</span></p>
+            <p><strong>Last train:</strong> <span id="lastTrain">—</span></p>
+            
+            <button onclick="clearTrainData()" class="danger" style="margin-top:10px;">Reset All Data</button>
+        </div>
+
+        <div class="section">
+            <h2>📝 Sightings Log</h2>
+            <textarea id="logInput" placeholder="Example: Westbound grain train with 3 locos"></textarea><br><br>
+            <button onclick="saveLogEntry()">Save Sighting</button>
+            <button onclick="clearLog()" class="danger">Clear Log</button>
+            
+            <h3 style="margin-top: 1.5rem;">Recent Sightings</h3>
+            <div id="logEntries" style="max-height: 250px; overflow-y: auto;"></div>
+        </div>
+
         <div class="section">
             <h2>📍 About the Line</h2>
             <p>Quinton, SK — Mile 77.6 on the CN Watrous Subdivision.</p>
             <p><strong>Typical traffic:</strong> Grain, potash, intermodal, manifest freights.</p>
-            <p><strong>Safety:</strong> Stay off the tracks. Use public crossings only.</p>
         </div>
 
         <div class="section">
@@ -47,27 +70,10 @@
             <div style="background:#1e2937;padding:0.75rem;border-radius:8px;margin-bottom:0.5rem;"><strong>161.205 MHz</strong> – CN Road (Secondary)</div>
             <div style="background:#1e2937;padding:0.75rem;border-radius:8px;margin-bottom:0.5rem;"><strong>160.425 MHz</strong> – Yard / Switching</div>
         </div>
-
-        <div class="section">
-            <h2>📝 Sightings Log</h2>
-            <textarea id="logInput" placeholder="Example: Westbound grain train with 3 locos"></textarea><br><br>
-            <button onclick="saveLogEntry()">Save Sighting</button>
-            <button onclick="clearLog()" class="danger">Clear Log</button>
-            <h3 style="margin-top: 1.5rem;">Recent Sightings</h3>
-            <div id="logEntries" style="max-height: 300px; overflow-y: auto;"></div>
-        </div>
-
-        <div class="section">
-            <h2>🔗 Resources</h2>
-            <ul>
-                <li><a href="https://www.openrailwaymap.org/" target="_blank">OpenRailwayMap</a> — Live track overlay</li>
-                <li><a href="https://broadcastify.com/" target="_blank">Broadcastify</a> — Live scanner feeds</li>
-            </ul>
-        </div>
     </div>
 
     <footer>
-        <p>Hobby project for Saskatchewan railfans • Stay safe!</p>
+        <p>Hobby project for Saskatchewan railfans • Tap the big button when a train passes!</p>
     </footer>
 
     <script>
@@ -75,8 +81,54 @@
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {attribution: '&copy; OpenStreetMap'}).addTo(map);
         L.tileLayer('https://{s}.tiles.openrailwaymap.org/standard/{z}/{x}/{y}.png', {opacity: 0.85}).addTo(map);
         L.marker([51.2314, -104.2427]).addTo(map).bindPopup('<b>Quinton, SK</b><br>Mile 77.6').openPopup();
-        setTimeout(() => map.invalidateSize(), 300);
+        setTimeout(() => map.invalidateSize(), 400);
 
+        // Train Counter
+        let trainData = JSON.parse(localStorage.getItem('quintonTrainData') || '[]');
+
+        function saveTrainData() {
+            localStorage.setItem('quintonTrainData', JSON.stringify(trainData));
+            updateStats();
+        }
+
+        function recordTrain() {
+            trainData.unshift(Date.now());
+            saveTrainData();
+            
+            // Auto add to log
+            const logInput = document.getElementById('logInput');
+            logInput.value = "Train passed by (auto-recorded)";
+            saveLogEntry();
+        }
+
+        function updateStats() {
+            const now = Date.now();
+            const todayStart = now - (24 * 60 * 60 * 1000);
+            
+            const todayCount = trainData.filter(t => t > todayStart).length;
+            const total = trainData.length;
+            
+            const days = Math.max(1, (now - Math.min(...trainData, now)) / (24*60*60*1000));
+            const avg = (total / days).toFixed(1);
+            
+            document.getElementById('todayCount').textContent = todayCount;
+            document.getElementById('totalCount').textContent = total;
+            document.getElementById('avgPerDay').textContent = avg;
+            
+            if (trainData.length > 0) {
+                const last = new Date(trainData[0]);
+                document.getElementById('lastTrain').textContent = last.toLocaleString('en-CA', {hour:'numeric', minute:'2-digit', month:'short', day:'numeric'});
+            }
+        }
+
+        function clearTrainData() {
+            if (confirm('Reset all train counter data?')) {
+                trainData = [];
+                saveTrainData();
+            }
+        }
+
+        // Sightings Log (kept from before)
         function loadLog() {
             const entries = JSON.parse(localStorage.getItem('quintonLog') || '[]');
             document.getElementById('logEntries').innerHTML = entries.map(e => 
@@ -97,13 +149,16 @@
         }
 
         function clearLog() {
-            if (confirm('Clear all logs?')) {
+            if (confirm('Clear sighting log?')) {
                 localStorage.removeItem('quintonLog');
                 loadLog();
             }
         }
 
-        window.onload = loadLog;
+        window.onload = () => {
+            updateStats();
+            loadLog();
+        };
     </script>
 </body>
 </html>
