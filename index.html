@@ -18,12 +18,11 @@
         h2 { color: var(--accent); margin-top: 0; border-bottom: 2px solid #334155; padding-bottom: 0.5rem; }
         button { background: var(--accent); color: #1e2937; border: none; padding: 0.9rem 1.5rem; border-radius: 8px; font-weight: bold; cursor: pointer; margin: 5px 8px 5px 0; font-size: 1.1rem; }
         button:hover { background: #fbbf24; }
-        button.big { background: #10b981; color: white; padding: 1.2rem 2rem; font-size: 1.3rem; width: 100%; margin: 10px 0; }
+        button.big { background: #10b981; color: white; padding: 1.2rem 2rem; font-size: 1.4rem; width: 100%; margin: 12px 0; }
         button.big:hover { background: #34d399; }
-        button.danger { background: #ef4444; }
-        .stat { font-size: 1.4rem; font-weight: bold; color: var(--accent); }
+        button.danger { background: #ef4444; color: white; }
+        .stat { font-size: 1.5rem; font-weight: bold; color: var(--accent); }
         .log-entry { background: #334155; padding: 0.75rem; border-radius: 8px; margin-bottom: 0.75rem; }
-        .weather { font-size: 1.1rem; }
         footer { text-align: center; padding: 2rem 1rem; font-size: 0.9rem; color: #64748b; }
     </style>
 </head>
@@ -40,26 +39,13 @@
         <div class="section">
             <h2>🚂 Train Counter</h2>
             <button onclick="recordTrain()" class="big">🚂 Train Passed Now</button>
-            <p><strong>Today:</strong> <span id="todayCount" class="stat">0</span> trains</p>
-            <p><strong>Total:</strong> <span id="totalCount" class="stat">0</span></p>
-            <p><strong>Avg/day:</strong> <span id="avgPerDay" class="stat">0</span></p>
+            
+            <p><strong>Today:</strong> <span id="todayCount" class="stat">0</span></p>
+            <p><strong>Total Recorded:</strong> <span id="totalCount" class="stat">0</span></p>
+            <p><strong>Avg per day:</strong> <span id="avgPerDay" class="stat">0.0</span></p>
             <p><strong>Last train:</strong> <span id="lastTrain">—</span></p>
-            <button onclick="clearTrainData()" class="danger" style="margin-top:8px;">Reset Counter</button>
-        </div>
-
-        <!-- Weather + Sunset -->
-        <div class="section">
-            <h2>🌤️ Current Conditions</h2>
-            <div id="weather" class="weather">Loading weather...</div>
-            <div id="sunInfo" style="margin-top:10px;"></div>
-        </div>
-
-        <!-- Best Times -->
-        <div class="section">
-            <h2>⏰ Best Time to Spot</h2>
-            <p><strong>Morning (6-10am)</strong> — Eastbound grain & potash often</p>
-            <p><strong>Evening (4-9pm)</strong> — Westbound intermodal & manifests common</p>
-            <p><strong>Golden Hour</strong> — Great for photos \~30 min before/after sunset</p>
+            
+            <button onclick="clearTrainData()" class="danger">Reset All Data</button>
         </div>
 
         <!-- Sightings Log -->
@@ -68,8 +54,15 @@
             <textarea id="logInput" placeholder="Example: Westbound grain train with 3 locos"></textarea><br><br>
             <button onclick="saveLogEntry()">Save Sighting</button>
             <button onclick="clearLog()" class="danger">Clear Log</button>
+            
             <h3 style="margin-top: 1.5rem;">Recent Sightings</h3>
-            <div id="logEntries" style="max-height: 220px; overflow-y: auto;"></div>
+            <div id="logEntries" style="max-height: 280px; overflow-y: auto;"></div>
+        </div>
+
+        <div class="section">
+            <h2>📍 About the Line</h2>
+            <p>Quinton, SK — Mile 77.6 on the CN Watrous Subdivision.</p>
+            <p><strong>Typical traffic:</strong> Grain, potash, intermodal containers, manifest freights.</p>
         </div>
 
         <div class="section">
@@ -81,20 +74,53 @@
     </div>
 
     <footer>
-        <p>Hobby project for Saskatchewan railfans • Tap the big button when trains pass!</p>
+        <p>Hobby project • Tap the big green button when a train goes by!</p>
     </footer>
 
     <script>
-        // Map with more markers
+        // Map
         const map = L.map('map').setView([51.2314, -104.2427], 13);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {attribution: '&copy; OpenStreetMap'}).addTo(map);
-        L.tileLayer('https://{s}.tiles.openrailwaymap.org/standard/{z}/{x}/{y}.png', {opacity: 0.85}).addTo(map);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap'
+        }).addTo(map);
+        L.tileLayer('https://{s}.tiles.openrailwaymap.org/standard/{z}/{x}/{y}.png', {
+            opacity: 0.85
+        }).addTo(map);
 
-        // Quinton
         L.marker([51.2314, -104.2427]).addTo(map)
             .bindPopup('<b>Quinton, SK</b><br>Mile 77.6 - Main Spot').openPopup();
 
-        // Nearby spots
-        L.marker([51.40, -104.10]).addTo(map).bindPopup('<b>Raymore Area</b><br>Good views, active mainline');
-        L.marker([51.52, -104.45]).addTo(map).bindPopup('<b>Nokomis Area</b><br>Frequent meets & siding');
-        L.marker([51.18
+        setTimeout(() => map.invalidateSize(), 600);
+
+        // Train Counter
+        let trainData = JSON.parse(localStorage.getItem('quintonTrainData') || '[]');
+
+        function updateStats() {
+            const now = Date.now();
+            const todayStart = now - 86400000; // 24 hours
+            const todayCount = trainData.filter(t => t > todayStart).length;
+            const total = trainData.length;
+            const days = Math.max(1, (now - (trainData[0] || now)) / 86400000);
+            
+            document.getElementById('todayCount').textContent = todayCount;
+            document.getElementById('totalCount').textContent = total;
+            document.getElementById('avgPerDay').textContent = (total / days).toFixed(1);
+            
+            if (trainData.length > 0) {
+                const last = new Date(trainData[0]);
+                document.getElementById('lastTrain').textContent = last.toLocaleString('en-CA', {month:'short', day:'numeric', hour:'numeric', minute:'2-digit'});
+            }
+        }
+
+        function recordTrain() {
+            trainData.unshift(Date.now());
+            localStorage.setItem('quintonTrainData', JSON.stringify(trainData));
+            updateStats();
+            
+            // Optional auto log
+            document.getElementById('logInput').value = "Train passed (auto-recorded)";
+            saveLogEntry();
+        }
+
+        function clearTrainData() {
+            if (
